@@ -1,0 +1,53 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: notification-worker
+  labels:
+    app: notification-worker
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: notification-worker
+  template:
+    metadata:
+      labels:
+        app: notification-worker
+    spec:
+      terminationGracePeriodSeconds: 30
+      containers:
+        - name: worker
+          image: task-platform/notification:local
+          command: ["python", "-m", "app.consumer"]
+          env:
+            - name: ROLE
+              value: consumer
+            - name: BUS_DRIVER
+              value: aws
+            - name: AWS_REGION
+              value: ap-southeast-2
+            - name: TASK_EVENTS_QUEUE_URL
+              value: replace-with-queue-url
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: task-platform
+                  key: notify-database-url
+            - name: JWT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: task-platform
+                  key: jwt-secret
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "256Mi"
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: task-platform
+type: Opaque
+stringData:
+  notify-database-url: replace-me
+  jwt-secret: replace-me

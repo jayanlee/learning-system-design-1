@@ -1,0 +1,4 @@
+CREATE DATABASE sd_auth;
+CREATE DATABASE sd_task;
+CREATE DATABASE sd_notify;
+CREATE DATABASE sd_bus;

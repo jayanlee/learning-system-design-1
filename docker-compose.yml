@@ -1,0 +1,65 @@
+# Optional. The primary local path is Postgres already on this machine plus three uvicorn processes.
+# This file publishes API ports only. The UI stays `npm run dev` in frontend/.
+# Host port 5433 avoids the Postgres that zifo and the tests already use on 5432.
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_HOST_AUTH_METHOD: trust
+      POSTGRES_USER: postgres
+    ports:
+      - "5433:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./scripts/databases.sql:/docker-entrypoint-initdb.d/01-databases.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 3s
+      timeout: 5s
+      retries: 20
+
+  auth:
+    build: ./auth-service
+    environment:
+      DATABASE_URL: postgresql+psycopg://postgres@postgres:5432/sd_auth
+      JWT_SECRET: dev-only-change-me
+      BUS_DATABASE_URL: postgresql+psycopg://postgres@postgres:5432/sd_bus
+      RELAY_ENABLED: "true"
+      EVENT_SOURCE: auth.service
+    ports:
+      - "8090:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  task:
+    build: ./task-service
+    environment:
+      DATABASE_URL: postgresql+psycopg://postgres@postgres:5432/sd_task
+      JWT_SECRET: dev-only-change-me
+      BUS_DATABASE_URL: postgresql+psycopg://postgres@postgres:5432/sd_bus
+      RELAY_ENABLED: "true"
+      CONSUMER_ENABLED: "true"
+      EVENT_SOURCE: task.service
+    ports:
+      - "8091:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  notification:
+    build: ./notification-service
+    environment:
+      DATABASE_URL: postgresql+psycopg://postgres@postgres:5432/sd_notify
+      JWT_SECRET: dev-only-change-me
+      BUS_DATABASE_URL: postgresql+psycopg://postgres@postgres:5432/sd_bus
+      CONSUMER_ENABLED: "true"
+    ports:
+      - "8092:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+volumes:
+  pgdata:
